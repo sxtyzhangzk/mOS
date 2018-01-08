@@ -112,7 +112,7 @@ EFI_STATUS loadKernelImage(UINTN sizeFile, UINT8 *buffer, void **pEntry, UINTN *
 			return EFI_INVALID_PARAMETER;
 
 		Elf64_Addr vaddrStart = phdr->p_vaddr & ~0xfff;
-		Elf64_Addr vaddrEnd = (phdr->p_vaddr + phdr->p_memsz + 0xfff - 1) & ~0xfff;
+		Elf64_Addr vaddrEnd = (phdr->p_vaddr + phdr->p_memsz + 0xfff) & ~0xfff;
 		UINTN nPages = (vaddrEnd - vaddrStart) >> 12;
 		
 		UINT8 *memory = NULL;
