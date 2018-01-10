@@ -21,6 +21,8 @@ typedef struct init_mem_region
 typedef struct init_param
 {
 	size_t			nPageTableNumOfPages;
+	size_t			nBackupPages;
+	uintptr_t		pPageTablePAddr;
 	size_t			nMemRegions;
 	init_mem_region	memRegions[0];
 } init_param;
@@ -28,3 +30,8 @@ typedef struct init_param
 static init_param * const pInitParam = (init_param *)0xffffffff00000000;
 static void * const pInitStack = (void *)0xfffffffffffff000;
 static void * const pPageTable = (void *)0xffffff0000000000;
+
+static inline size_t getNumberOfBackupPages(size_t nPageTablePages)
+{
+	return nPageTablePages + 3;
+}

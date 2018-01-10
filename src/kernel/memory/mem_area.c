@@ -28,12 +28,12 @@ void mem_area_init(MemAreaManager *self, MemArea *(*allocator)(), void(*allocFre
 	avl_insert(&root->nodeAddr, &self->rootAddr);
 }
 
-uintptr_t mem_area_allocate(MemAreaManager *self, uintptr_t size, uintptr_t *pSize, bool forceSize)
+MemArea *mem_area_allocate_find(MemAreaManager *self, uintptr_t size, uintptr_t *pSize, bool forceSize)
 {
 	if (size == 0)
 	{
 		*pSize = 0;
-		return 0;
+		return NULL;
 	}
 
 	AVLNode *node = avl_lower_bound(size, self->rootSize);
@@ -42,13 +42,13 @@ uintptr_t mem_area_allocate(MemAreaManager *self, uintptr_t size, uintptr_t *pSi
 		if (forceSize)
 		{
 			*pSize = 0;
-			return 0;
+			return NULL;
 		}
 		node = avl_upper_bound(~0, self->rootSize);
 		if (!node)
 		{
 			*pSize = 0;
-			return 0;
+			return NULL;
 		}
 		*pSize = node->key;
 	}
@@ -57,30 +57,44 @@ uintptr_t mem_area_allocate(MemAreaManager *self, uintptr_t size, uintptr_t *pSi
 
 	MemArea *area = (MemArea *)node->val;
 
-	kassert(area->nRef == 0);
+	return area;
+}
 
-	if (area->nodeSize.key == *pSize)
+uintptr_t mem_area_allocate_commit(MemAreaManager *self, MemArea *area, uintptr_t size)
+{
+	kassert(area->nRef == 0);
+	kassert(size > 0);
+
+	if (area->nodeSize.key == size)
 	{
 		area->nRef++;
 		avl_erase(&area->nodeSize, &self->rootSize);
-		self->sizeFree -= *pSize;
+		self->sizeFree -= size;
 		return area->nodeAddr.key;
 	}
 	else
 	{
-		kassert(area->nodeSize.key > *pSize);
+		kassert(area->nodeSize.key > size);
 		area->nRef++;
 		avl_erase(&area->nodeSize, &self->rootSize);
 
-		MemArea *nextArea = allocate_mem_area(self, area->nodeAddr.key + *pSize, area->nodeSize.key - *pSize);
+		MemArea *nextArea = allocate_mem_area(self, area->nodeAddr.key + size, area->nodeSize.key - size);
 		nextArea->nRef = 0;
 		avl_insert(&nextArea->nodeSize, &self->rootSize);
 		avl_insert(&nextArea->nodeAddr, &self->rootAddr);
 
-		area->nodeSize.key = *pSize;
-		self->sizeFree -= *pSize;
+		area->nodeSize.key = size;
+		self->sizeFree -= size;
 		return area->nodeAddr.key;
 	}
+}
+
+uintptr_t mem_area_allocate(MemAreaManager *self, uintptr_t size, uintptr_t *pSize, bool forceSize)
+{
+	MemArea *area = mem_area_allocate_find(self, size, pSize, forceSize);
+	if (!area)
+		return 0;
+	return mem_area_allocate_commit(self, area, *pSize);
 }
 
 void mem_area_allocate_fixed(MemAreaManager *self, uintptr_t addr, uintptr_t size)

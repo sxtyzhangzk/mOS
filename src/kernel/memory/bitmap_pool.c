@@ -10,6 +10,7 @@ typedef struct bitmap_pool
 {
 	size_t			size;
 	size_t			maxsize;
+	size_t			used;
 	bitmap_element	bitmap[0];
 } bitmap_pool;
 
@@ -21,6 +22,7 @@ inline size_t bitmap_size(void *poolStart, void *poolEnd)
 void bitmap_pool_init(void *poolStart, void *poolEnd)
 {
 	bitmap_pool *pool = (bitmap_pool *)poolStart;
+	pool->used = 0;
 	pool->size = 0;
 	pool->maxsize = bitmap_size(poolStart, poolEnd);
 
@@ -40,7 +42,10 @@ size_t bitmap_pool_allocate(void *poolStart)
 			size_t bit;
 			for (bit = 0; bit < bitPerElement && i * bitPerElement + bit < pool->size; bit++)
 				if (!(pool->bitmap[i] & ((bitmap_element)1 << bit)))
+				{
+					pool->used++;
 					return i * bitPerElement + bit;
+				}
 			return ~0;
 		}
 	}
@@ -58,7 +63,23 @@ void bitmap_pool_free(void *poolStart, size_t idx)
 
 	kassert(pool->bitmap[i] & ((bitmap_element)1 << bit));
 
-	pool->bitmap[idx / bitPerElement] &= ~((bitmap_element)1 << bit);
+	pool->bitmap[i] &= ~((bitmap_element)1 << bit);
+	pool->used--;
+}
+
+void bitmap_pool_set_in_use(void *poolStart, size_t idx)
+{
+	bitmap_pool *pool = (bitmap_pool *)poolStart;
+
+	kassert(idx < pool->size);
+
+	size_t i = idx / bitPerElement;
+	size_t bit = idx % bitPerElement;
+
+	if (!(pool->bitmap[i] & ((bitmap_element)1 << bit)))
+		pool->used++;
+
+	pool->bitmap[i] |= ((bitmap_element)1 << bit);
 }
 
 size_t bitmap_pool_push_back(void *poolStart, size_t delta)
@@ -68,6 +89,21 @@ size_t bitmap_pool_push_back(void *poolStart, size_t delta)
 	if (pool->size + delta <= pool->maxsize)
 	{
 		pool->size += delta;
+		return pool->size;
+	}
+
+	return ~0;
+}
+
+size_t bitmap_pool_resize(void *poolStart, size_t newSize)
+{
+	bitmap_pool *pool = (bitmap_pool *)poolStart;
+	
+	kassert(newSize >= pool->size);
+
+	if (newSize <= pool->maxsize)
+	{
+		pool->size = newSize;
 		return pool->size;
 	}
 
@@ -87,4 +123,19 @@ void bitmap_pool_expand(void *poolStart, void *poolNewEnd)
 		pool->bitmap[i] = 0;
 
 	pool->maxsize = newsize;
+}
+
+size_t bitmap_pool_get_maxsize(void *poolStart)
+{
+	return ((bitmap_pool *)poolStart)->maxsize;
+}
+
+size_t	bitmap_pool_get_size(void *poolStart)
+{
+	return ((bitmap_pool *)poolStart)->size;
+}
+
+size_t	bitmap_pool_get_used(void *poolStart)
+{
+	return ((bitmap_pool *)poolStart)->used;
 }

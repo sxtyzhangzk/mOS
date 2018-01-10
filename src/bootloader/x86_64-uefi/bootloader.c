@@ -294,15 +294,19 @@ UINTN initMemory(EFI_MEMORY_DESCRIPTOR *memMap, UINTN sizeMemDescriptor, UINTN n
 	// Map the page table to virtual address
 	//  note that the `pageTableEnd' may increase during the iteration
 	//
-	//  we allocate 3 more pages for the page table to prevent the OS from a special case 
-	//    that there's no free page table entries to allocate more page tables
-	for (UINTN offset = 0; offset < pageTableEnd - pageTable + 0x3000; offset += 0x1000)
+	// <del> we allocate 3 more pages for the page table to prevent the OS from a special case 
+	//    that there's no free page table entries to allocate more page tables </del>
+	// we allocate getNumberOfBackPages( number of pages that page table used ) pages for the OS to initialize its data structure
+	for (UINTN offset = 0; offset < pageTableEnd - pageTable + 0x1000 * getNumberOfBackupPages(((UINTN)pageTableEnd - (UINTN)pageTable) >> 12); offset += 0x1000)
 		mapMemory(pageTable, &pageTableEnd, 3, (void *)((UINTN)pPageTable + offset), (void *)((UINTN)pageTable + offset));
 
-	UINTN pageTableNumOfPages = (((UINTN)pageTableEnd - (UINTN)pageTable) >> 12) + 3;
+	UINTN pageTableNumOfPages = (((UINTN)pageTableEnd - (UINTN)pageTable) >> 12);
+	size_t nBackupPages = getNumberOfBackupPages(pageTableNumOfPages);
 	initParam->nPageTableNumOfPages = pageTableNumOfPages;
+	initParam->nBackupPages = nBackupPages;
+	initParam->pPageTablePAddr = (uintptr_t)pageTable;
 
-	if (pageTableNumOfPages > memPageTable->NumberOfPages)
+	if (pageTableNumOfPages + nBackupPages > memPageTable->NumberOfPages)
 	{
 		// We used too much memory to store the page table
 		return 2;

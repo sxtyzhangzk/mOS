@@ -22,6 +22,8 @@ typedef struct MemAreaManager
 } MemAreaManager;
 
 void mem_area_init(MemAreaManager *self, MemArea *(*allocator)(), void (*allocFree)(MemArea *), uintptr_t startAddr, size_t sizeAll, bool useRefCount);
+MemArea *mem_area_allocate_find(MemAreaManager *self, uintptr_t size, uintptr_t *pSize, bool forceSize);
+uintptr_t mem_area_allocate_commit(MemAreaManager *self, MemArea *area, uintptr_t size);
 uintptr_t mem_area_allocate(MemAreaManager *self, uintptr_t size, uintptr_t *pSize, bool forceSize);
 void mem_area_allocate_fixed(MemAreaManager *self, uintptr_t addr, uintptr_t size);
 void mem_area_free(MemAreaManager *self, uintptr_t addr, uintptr_t size);
